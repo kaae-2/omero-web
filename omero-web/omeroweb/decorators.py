@@ -633,7 +633,7 @@ class render_response(object):
 
 
 class login_by_session_id(object):
-
+    # new decorator
     def __init__(self, session_id=None):
         self.session_id = session_id
         self.omero_session_key = session_id
