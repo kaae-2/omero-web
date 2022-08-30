@@ -1,9 +1,5 @@
-set -e
-set -u
-set -x
-IMAGE=${IMAGE:-${USER}-web-test}
-PIP_CACHE_DIR=${PIP_CACHE_DIR:-/tmp/pip-cache}
-mkdir -m 777 -p ${PIP_CACHE_DIR}
-chmod a+t ${PIP_CACHE_DIR}
-docker build -t ${IMAGE} .
-docker run -ti --rm -v ${PIP_CACHE_DIR}:/tmp/pip-cache ${IMAGE} "$@"
+#!/bin/sh
+set -eu
+
+docker-compose up -d
+./wait_for_login.sh
