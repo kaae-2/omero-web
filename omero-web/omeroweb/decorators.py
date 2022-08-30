@@ -210,7 +210,8 @@ class login_required(object):
         except KeyError:
             pass
         except Exception:
-            logger.error("Error while redirection on not logged in.", exc_info=True)
+            logger.error(
+                "Error while redirection on not logged in.", exc_info=True)
 
         args = {"url": url}
 
@@ -319,7 +320,8 @@ class login_required(object):
         if not settings.PUBLIC_CACHE_ENABLED or connector.omero_session_key is None:
             return
         logger.debug("Setting OMERO.webpublic connector: %r" % connector)
-        cache.set(settings.PUBLIC_CACHE_KEY, connector, settings.PUBLIC_CACHE_TIMEOUT)
+        cache.set(settings.PUBLIC_CACHE_KEY, connector,
+                  settings.PUBLIC_CACHE_TIMEOUT)
 
     def get_connection(self, server_id, request):
         """
@@ -350,7 +352,8 @@ class login_required(object):
                     "Attempting to use cached OMERO.webpublic "
                     "connector: %r" % public_user_connector
                 )
-                connection = public_user_connector.join_connection(self.useragent)
+                connection = public_user_connector.join_connection(
+                    self.useragent)
                 if connection is not None:
                     request.session["connector"] = public_user_connector
                     logger.debug(
@@ -420,7 +423,8 @@ class login_required(object):
                     servers = list(Server)
                     if len(servers) == 1:
                         server_id = servers[0].id
-                        logger.debug("No Server ID available: using %s" % server_id)
+                        logger.debug(
+                            "No Server ID available: using %s" % server_id)
                     else:
                         logger.debug("No Server ID available.")
                         return None
@@ -530,7 +534,8 @@ class login_required(object):
                     ctx.load_server_settings(conn, request)
 
                     share_id = kwargs.get("share_id")
-                    conn_share = ctx.prepare_share_connection(request, conn, share_id)
+                    conn_share = ctx.prepare_share_connection(
+                        request, conn, share_id)
                     if conn_share is not None:
                         ctx.on_share_connection_prepared(request, conn_share)
                         kwargs["conn"] = conn_share
@@ -544,7 +549,8 @@ class login_required(object):
                 retval = f(request, *args, **kwargs)
             finally:
                 # If f() raised Exception, e.g. Http404() we must still cleanup
-                delayConnectionCleanup = isinstance(retval, ConnCleaningHttpResponse)
+                delayConnectionCleanup = isinstance(
+                    retval, ConnCleaningHttpResponse)
                 if doConnectionCleanup and delayConnectionCleanup:
                     raise ApiUsageException(
                         "Methods that return a"
@@ -552,7 +558,8 @@ class login_required(object):
                         " @login_required(doConnectionCleanup=False)"
                     )
                 doConnectionCleanup = not delayConnectionCleanup
-                logger.debug("Doing connection cleanup? %s" % doConnectionCleanup)
+                logger.debug("Doing connection cleanup? %s" %
+                             doConnectionCleanup)
                 try:
                     if doConnectionCleanup:
                         if conn is not None and conn.c is not None:
@@ -623,3 +630,38 @@ class render_response(object):
                 return render(request, template, context)
 
         return update_wrapper(wrapper, f)
+
+
+class login_by_session_id(object):
+
+    def __init__(self, session_id=None):
+        self.session_id = session_id
+        self.omero_session_key = session_id
+
+    def __getattr__(self, name):
+        if name == "__name__":
+            return self.__class__.__name__
+        else:
+            return super(login_by_session_id, self).getattr(name)
+
+    def __call__(ctx, f):
+
+        def wrapped(request, *args, **kwargs):
+            conn = kwargs.get("conn", None)  # logged in connection object
+            server_id = kwargs.get("server_id", None)  # 1
+            # session_id = kwargs.get("session_id", None) # session_id
+            userip = kwargs.get("userip", None)  # ip of backend
+
+            if conn is None:
+                # join connection on session id
+                connection = Connector(server_id, is_secure=True)
+                kwargs["conn"] = connection.join_connection(
+                    useragent="OMERO.web", userip=userip)
+
+            try:
+                return f(request, *args, **kwargs)
+            except Exception as e:
+                logger.error(e)
+                raise e
+
+        return update_wrapper(wrapped, f)
